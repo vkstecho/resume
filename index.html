@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-rb-i18n="title">Top-Class Resume Builder</title>
+  <!-- Favicons (Resume Builder — not ManPower root) -->
+  <link rel="icon" href="icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="shortcut icon" href="icons/favicon.ico">
+  <!-- Open Graph / social / YouTube link preview -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Resume Builder FREE">
+  <meta property="og:title" content="Resume Builder FREE — VKS Tech">
+  <meta property="og:description" content="Free top-class resume builder. Create and download professional resumes.">
+  <meta property="og:url" content="https://manpower.vkstech.com/resume-builder/">
+  <meta property="og:image" content="https://manpower.vkstech.com/resume-builder/icons/favicon-192.png">
+  <meta property="og:image:width" content="192">
+  <meta property="og:image:height" content="192">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Resume Builder FREE — VKS Tech">
+  <meta name="twitter:image" content="https://manpower.vkstech.com/resume-builder/icons/favicon-192.png">
+  <meta name="theme-color" content="#2563eb">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Georgia', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Man Power Firebase (metpowervks) — mobile login + cloud resume -->
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyAG3xE_Bfj7VuA3hg5ClUAKUy7S6TNExGs",
+      authDomain: "metpowervks.firebaseapp.com",
+      databaseURL: "https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "metpowervks",
+      storageBucket: "metpowervks.firebasestorage.app",
+      messagingSenderId: "953633730980",
+      appId: "1:953633730980:web:3b5dfc28f0d8778cb3d131"
+    };
+    try {
+      const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+      const auth = getAuth(app);
+      window.ResumeFB = {
+        ready: false,
+        async ensureAuth() {
+          if (auth.currentUser) return auth.currentUser;
+          try { await signInAnonymously(auth); } catch (e) { console.warn('[ResumeFB] anon', e); }
+          return auth.currentUser;
+        },
+        async sendOtp(phone10) {
+          const phone = '+91' + phone10;
+          try { if (window._rbRecaptcha) window._rbRecaptcha.clear(); } catch (e) {}
+          const host = document.getElementById('rb-recaptcha');
+          if (host) host.innerHTML = '';
+          window._rbRecaptcha = new RecaptchaVerifier(auth, 'rb-recaptcha', { size: 'normal' });
+          await window._rbRecaptcha.render();
+          const conf = await signInWithPhoneNumber(auth, phone, window._rbRecaptcha);
+          window._rbConfirm = (code) => conf.confirm(code);
+          return true;
+        },
+        async verifyOtp(code) {
+          if (!window._rbConfirm) throw new Error('Request OTP first');
+          return (await window._rbConfirm(code))?.user || null;
+        },
+        async saveResume(mobile10, payload) {
+          await this.ensureAuth();
+          const path = 'resume_builder/' + mobile10;
+          await set(ref(db, path), Object.assign({}, payload, { mobile: mobile10, updatedAt: Date.now() }));
+        },
+        async loadResume(mobile10) {
+          await this.ensureAuth();
+          const snap = await get(ref(db, 'resume_builder/' + mobile10));
+          return snap.exists() ? snap.val() : null;
+        }
+      };
+      onAuthStateChanged(auth, () => { window.ResumeFB.ready = true; });
+      window.ResumeFB.ready = true;
+      window.dispatchEvent(new Event('resume-fb-ready'));
+      console.info('[ResumeFB] connected metpowervks');
+    } catch (e) {
+      console.warn('[ResumeFB] init failed', e);
+      window.ResumeFB = null;
+    }
+  </script>
+
+</head>
+<!-- UI language follows Man Power; print stays English -->
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+
+  <!-- Sync / login strip (compact) -->
+  <div id="rbLoginBar" class="rb-login-bar bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center gap-2 min-h-[36px]">
+      <span id="rbLoginStatus" class="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs leading-tight truncate flex-1 min-w-0">Sign in with mobile for auto-sync</span>
+      <div id="rbLoginForm" class="flex items-center gap-1.5 flex-shrink-0">
+        <input id="rbMobile" type="tel" maxlength="10" inputmode="numeric" placeholder="Mobile"
+          class="px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs w-[7.5rem] sm:w-36" />
+        <button type="button" id="rbSendOtp" class="px-2.5 py-1 rounded-md bg-primary-600 text-white text-[11px] font-semibold whitespace-nowrap">Send OTP</button>
+        <input id="rbOtp" type="tel" maxlength="6" inputmode="numeric" placeholder="OTP" class="px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs w-16 sm:w-20 hidden" />
+        <button type="button" id="rbVerifyOtp" class="px-2.5 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hidden whitespace-nowrap">Verify</button>
+        <button type="button" id="rbLogoutBtn" class="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hidden whitespace-nowrap" title="Logout">Logout</button>
+      </div>
+    </div>
+    <div id="rb-recaptcha" class="flex justify-center"></div>
+  </div>
+
+  <!-- Top Navigation — mobile-safe title hierarchy -->
+  <header id="rbAppHeader" class="rb-app-header sticky top-0 z-50 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-2 sm:gap-3 h-14 sm:h-16">
+        <!-- Brand -->
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <img src="icons/resume-icon.jpg" alt="" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg shadow-sm object-cover flex-shrink-0" width="36" height="36" />
+          <div class="min-w-0 leading-tight">
+            <div class="text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-400 dark:text-slate-500 uppercase">
+              VKS<span class="text-red-500 normal-case">Tech</span>
+            </div>
+            <h1 class="text-[15px] sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
+              Resume Builder
+            </h1>
+            <p class="hidden sm:block text-xs text-slate-500 dark:text-slate-400">Professional · ATS-Friendly</p>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <button id="themeToggle" type="button" class="rb-icon-btn" title="Toggle theme" aria-label="Toggle theme">
+            <i class="fas fa-moon text-slate-600 dark:hidden"></i>
+            <i class="fas fa-sun text-amber-400 hidden dark:inline"></i>
+          </button>
+          <button id="downloadPdfBtn" type="button" class="rb-icon-btn" title="Download PDF" aria-label="Download PDF">
+            <i class="fas fa-file-pdf text-red-600 dark:text-red-400"></i>
+          </button>
+          <label class="rb-icon-btn cursor-pointer mb-0" title="Upload resume data (JSON backup)">
+            <i class="fas fa-file-upload text-slate-600 dark:text-slate-300"></i>
+            <input type="file" id="importJsonInput" accept=".json,application/json" class="hidden" />
+          </label>
+          <button id="clearAllBtn" type="button" class="rb-icon-btn" title="Clear all data" aria-label="Clear all data">
+            <i class="fas fa-trash-alt text-slate-500 dark:text-slate-400"></i>
+          </button>
+          <button id="printBtn" type="button" data-rb-i18n="print" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium shadow-sm transition-colors">
+            <i class="fas fa-print"></i> <span>Print / PDF</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+    <!-- Progress Bar -->
+    <div class="mb-4 sm:mb-6">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <span class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">Step <span id="currentStepNum">1</span> of 6</span>
+        <span id="stepTitle" class="text-xs sm:text-sm font-semibold text-primary-600 dark:text-primary-400 text-right truncate min-w-0">Personal & Contact</span>
+      </div>
+      <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+        <div id="progressBar" class="bg-gradient-to-r from-primary-500 to-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 16.66%"></div>
+      </div>
+      <div class="flex justify-between mt-2 text-xs text-slate-400 dark:text-slate-500">
+        <span class="step-dot active" data-step="1">1</span>
+        <span class="step-dot" data-step="2">2</span>
+        <span class="step-dot" data-step="3">3</span>
+        <span class="step-dot" data-step="4">4</span>
+        <span class="step-dot" data-step="5">5</span>
+        <span class="step-dot" data-step="6">6</span>
+      </div>
+    </div>
+
+    <!-- Mobile: Edit / Preview tabs -->
+    <div id="rbMobileTabs" class="flex xl:hidden gap-2 mb-3 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+      <button type="button" id="rbTabEdit" class="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" onclick="window.__rbShowTab&&__rbShowTab('edit')">✏️ Edit</button>
+      <button type="button" id="rbTabPreview" class="flex-1 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300" onclick="window.__rbShowTab&&__rbShowTab('preview')">👁 Preview</button>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <!-- Left: Wizard Form -->
+      <div id="rbEditCol" class="xl:col-span-5 space-y-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <!-- Step 1: Personal -->
+          <section id="step-1" class="wizard-step p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-user"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold">Personal & Contact</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Basic information and contact details</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                <input type="text" id="fullName" class="form-input" placeholder="John Doe" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Job Title</label>
+                <input type="text" id="jobTitle" class="form-input" placeholder="Senior Software Engineer" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Email <span class="text-red-500">*</span></label>
+                <input type="email" id="email" class="form-input" placeholder="john@example.com" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Phone</label>
+                <input type="tel" id="phone" class="form-input" placeholder="+1 234 567 8900" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Location</label>
+                <input type="text" id="location" class="form-input" placeholder="San Francisco, CA" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Passport Number</label>
+                <input type="text" id="passport" class="form-input" placeholder="Optional" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">LinkedIn</label>
+                <input type="url" id="linkedin" class="form-input" placeholder="linkedin.com/in/johndoe" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Portfolio / Website</label>
+                <input type="url" id="portfolio" class="form-input" placeholder="johndoe.dev" />
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div class="flex items-center justify-between mb-3">
+                <label class="text-sm font-medium">Include Passport-size Photo</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="includePhoto" class="sr-only peer" />
+                  <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-500 peer-checked:bg-primary-600"></div>
+                </label>
+              </div>
+              <p id="photoHint" class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                Skip photo for online / ATS applications (safer for portals). Use a passport photo only if the employer asks, or for local / Gulf biodata-style CVs.
+              </p>
+              <div id="photoUploadArea" class="hidden">
+                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <i class="fas fa-cloud-upload-alt text-2xl text-slate-400 mb-2"></i>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Click to upload photo</p>
+                    <p class="text-xs text-slate-400">PNG, JPG (max 2MB)</p>
+                  </div>
+                  <input type="file" id="photoInput" accept="image/*" class="hidden" />
+                </label>
+                <div id="photoPreview" class="mt-3 hidden flex items-center gap-3">
+                  <img id="photoImg" class="w-16 h-16 rounded-full object-cover border-2 border-primary-200" alt="Photo" />
+                  <button type="button" id="removePhoto" class="text-sm text-red-500 hover:text-red-600"><i class="fas fa-trash mr-1"></i>Remove</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 2: Summary -->
+          <section id="step-2" class="wizard-step hidden p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-align-left"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold">Professional Summary</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">A concise overview of your professional profile</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Summary / Objective</label>
+              <textarea id="summary" rows="6" class="form-input resize-none" placeholder="Results-driven professional with X years of experience in..."></textarea>
+              <p class="text-xs text-slate-400 mt-1.5"><span id="summaryCount">0</span>/400 characters recommended</p>
+            </div>
+          </section>
+
+          <!-- Step 3: Experience -->
+          <section id="step-3" class="wizard-step hidden p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-briefcase"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold" data-rb-i18n="experience">Work Experience</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Add your roles and achievements</p>
+                </div>
+              </div>
+              <button type="button" id="addExperience" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                <i class="fas fa-plus"></i> Add Role
+              </button>
+            </div>
+            <div id="experienceList" class="space-y-4"></div>
+          </section>
+
+          <!-- Step 4: Education -->
+          <section id="step-4" class="wizard-step hidden p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold">Education & Certifications</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Degrees, courses and certificates</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" id="addEducation" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                  <i class="fas fa-plus"></i> Education
+                </button>
+                <button type="button" id="addCertification" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                  <i class="fas fa-plus"></i> Cert
+                </button>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Education</h3>
+              <div id="educationList" class="space-y-4 mb-6"></div>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Certifications</h3>
+              <div id="certificationList" class="space-y-4"></div>
+            </div>
+          </section>
+
+          <!-- Step 5: Skills & Languages -->
+          <section id="step-5" class="wizard-step hidden p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-tools"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold" data-rb-i18n="skills">Skills & Languages</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Technical, soft skills and languages</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Technical Skills <span class="text-slate-400 font-normal">(comma separated)</span></label>
+              <input type="text" id="techSkills" class="form-input" placeholder="JavaScript, React, Node.js, Python, AWS..." />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Soft Skills <span class="text-slate-400 font-normal">(comma separated)</span></label>
+              <input type="text" id="softSkills" class="form-input" placeholder="Leadership, Communication, Problem Solving..." />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Languages <span class="text-slate-400 font-normal">(e.g. English - Native, Spanish - Intermediate)</span></label>
+              <input type="text" id="languages" class="form-input" placeholder="English - Native, Hindi - Fluent" />
+            </div>
+          </section>
+
+          <!-- Step 6: Projects / Custom -->
+          <section id="step-6" class="wizard-step hidden p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-project-diagram"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold">Projects & Custom Sections</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Showcase projects, publications or other sections</p>
+                </div>
+              </div>
+              <button type="button" id="addProject" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                <i class="fas fa-plus"></i> Add Item
+              </button>
+            </div>
+            <div id="projectList" class="space-y-4"></div>
+          </section>
+
+          <!-- Navigation Buttons -->
+          <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <button type="button" id="prevBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              <i class="fas fa-arrow-left mr-1.5"></i> Previous
+            </button>
+            <button type="button" id="nextBtn" class="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium shadow transition-colors">
+              Next <i class="fas fa-arrow-right ml-1.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Template & Options -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <i class="fas fa-palette text-primary-500"></i> Template & Layout
+          </h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mb-1">ATS-safe · single page</div>
+            <button type="button" data-template="ats" data-pack="ats" data-ats="1" class="template-btn active-template">ATS Clean <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="executive" data-pack="pro" data-photo="1" class="template-btn">Executive <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="minimalist" data-pack="ats" data-ats="1" class="template-btn">Minimalist <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="classic" data-pack="pro" data-photo="1" class="template-btn">Classic Pro <span class="tpl-badge photo">Photo OK</span></button>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Role packs</div>
+            <button type="button" data-template="fresher" data-pack="fresher" data-photo="1" class="template-btn">Fresher <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="technical" data-pack="plant" data-photo="1" class="template-btn">Technical / Plant <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="manager" data-pack="manager" data-photo="1" class="template-btn">Manager <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="academic" data-pack="academic" data-photo="1" class="template-btn">Academic <span class="tpl-badge photo">Photo OK</span></button>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Premium layouts</div>
+            <button type="button" data-template="modern" data-pack="pro" data-photo="1" class="template-btn">Modern Bold <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="elegant" data-pack="pro" data-photo="1" class="template-btn">Elegant Serif <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="creative" data-pack="creative" data-photo="1" class="template-btn">Creative <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="twocolumn" data-pack="pro" data-photo="1" class="template-btn">Two-Column <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="sidebar" data-pack="pro" data-photo="1" class="template-btn">Sidebar Pro <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="compact" data-pack="ats" data-ats="1" class="template-btn">Compact 1-Page <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="navy" data-pack="pro" data-photo="1" class="template-btn">Navy Professional <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="timeline" data-pack="pro" data-photo="1" class="template-btn">Timeline <span class="tpl-badge photo">Photo OK</span></button>
+            <p class="col-span-full text-[11px] text-slate-500 mt-2 leading-relaxed">All 16 layouts target <b>one A4 page</b>. <span class="tpl-badge ats">ATS</span> = best without photo for online portals. <span class="tpl-badge photo">Photo OK</span> = works cleanly with or without passport photo. Default is <b>no photo</b>.</p>
+          <div id="templatePreviewMini" class="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 col-span-full">
+            <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Layout preview (sample)</div>
+            <div id="tplPreviewFrame" class="bg-white dark:bg-slate-800 rounded-lg shadow-inner p-3 text-[9px] leading-tight text-slate-700 dark:text-slate-200 min-h-[120px] border border-slate-100 dark:border-slate-700">
+              <div style="font-weight:700;font-size:12px">Your Name</div>
+              <div style="color:#94a3b8;margin-bottom:6px">Job Title · City</div>
+              <div style="height:2px;background:#1d4ed8;margin-bottom:8px"></div>
+              <div style="font-weight:600">Experience</div>
+              <div>Company · Role</div>
+              <div style="color:#64748b">Sample line for this template style…</div>
+            </div>
+          </div>
+
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+            <span class="text-sm">Compact Spacing</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="compactSpacing" class="sr-only peer" />
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-500 peer-checked:bg-primary-600"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Live Preview -->
+      <div id="rbPreviewCol" class="xl:col-span-7 hidden xl:block">
+        <div class="sticky top-24">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+              <i class="fas fa-eye"></i> Live Preview
+            </h3>
+            <div class="flex items-center gap-2">
+              <button id="mobilePrintBtn" class="sm:hidden px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium">
+                <i class="fas fa-print mr-1"></i> Print
+              </button>
+              <span class="text-xs text-slate-400" data-rb-i18n="preview">A4 Preview</span>
+            </div>
+          </div>
+          <div class="resume-preview-wrapper overflow-auto max-h-[calc(100vh-8rem)] min-h-[60vh] xl:min-h-0 rounded-xl bg-slate-200/50 dark:bg-slate-950/50 p-4 shadow-inner">
+            <div id="resumePaper" class="resume-paper template-ats">
+              <!-- Dynamically rendered by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+    Saved to local storage
+  </div>
+
+  <script>
+  /* Detect Man Power iframe / standalone — tune top chrome */
+  (function(){
+    try {
+      var embedded = false;
+      try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+      if (embedded) document.documentElement.classList.add('rb-embedded');
+      // Prefer phone from Man Power session when embedded
+      try {
+        if (embedded && window.parent) {
+          var ph = null;
+          try { ph = window.parent.SESSION && (window.parent.SESSION.mobile || window.parent.SESSION.phone); } catch (e2) {}
+          if (ph) {
+            var digits = String(ph).replace(/\D/g,'').slice(-10);
+            if (digits.length === 10) {
+              window.__rbPrefillMobile = digits;
+            }
+          }
+        }
+      } catch (e3) {}
+    } catch (e) {}
+  })();
+  </script>
+  <script src="js/app.js"></script>
+
+<script>
+(function(){
+  /* Resume Builder UI language follows Man Power (mp_lang). Printed resume stays English. */
+  var STR = {
+    en: {
+      title: 'Top-Class Resume Builder',
+      fullName: 'Full Name',
+      experience: 'Work Experience',
+      skills: 'Skills & Languages',
+      tech: 'Technical Skills',
+      soft: 'Soft Skills',
+      print: 'Print / PDF',
+      preview: 'A4 Preview',
+      save: 'Save',
+      templates: 'Templates',
+      download: 'Download PDF',
+      langNote: 'Resume PDF/print is always in English'
+    },
+    hi: {
+      title: 'टॉप-क्लास रिज्यूमे बिल्डर',
+      fullName: 'पूरा नाम',
+      experience: 'कार्य अनुभव',
+      skills: 'कौशल और भाषाएँ',
+      tech: 'तकनीकी कौशल',
+      soft: 'सॉफ्ट स्किल्स',
+      print: 'प्रिंट / PDF',
+      preview: 'A4 पूर्वावलोकन',
+      save: 'सेव',
+      templates: 'टेम्पलेट',
+      download: 'PDF डाउनलोड',
+      langNote: 'प्रिंट / PDF रिज्यूमे हमेशा English में रहता है'
+    }
+  };
+  function getLang(){
+    try{
+      var l=String(localStorage.getItem('mp_lang')||'en').toLowerCase();
+      if(l==='hindi'||l==='hin') l='hi';
+      return l==='hi'?'hi':'en';
+    }catch(e){return 'en';}
+  }
+  function t(k){var p=STR[getLang()]||STR.en;return p[k]!=null?p[k]:(STR.en[k]||k);}
+  window.rbApplyUiLang=function(){
+    var lang=getLang();
+    document.documentElement.setAttribute('lang', lang==='hi'?'hi':'en');
+    document.querySelectorAll('[data-rb-i18n]').forEach(function(el){
+      var k=el.getAttribute('data-rb-i18n');
+      if(k) el.textContent=t(k);
+    });
+    // Print path: force English labels inside #resumePreview / .resume-sheet only if we had translated them — we keep preview content English always
+    document.querySelectorAll('#resumePreview [data-rb-i18n-print-en], .resume-sheet [data-rb-i18n-print-en]').forEach(function(el){
+      var k=el.getAttribute('data-rb-i18n-print-en');
+      if(k && STR.en[k]) el.textContent=STR.en[k];
+    });
+  };
+  // Before print, ensure resume body section headings in print area are English
+  window.addEventListener('beforeprint', function(){
+    document.querySelectorAll('#resumePreview, .resume-sheet, #resumePaper').forEach(function(root){
+      if(!root) return;
+      root.querySelectorAll('[data-rb-section]').forEach(function(el){
+        var k=el.getAttribute('data-rb-section');
+        if(k && STR.en[k]) el.textContent=STR.en[k];
+      });
+    });
+  });
+  window.addEventListener('afterprint', function(){ try{ window.rbApplyUiLang(); }catch(e){} });
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', window.rbApplyUiLang);
+  else window.rbApplyUiLang();
+})();
+</script>
+
+</body>
+</html>
